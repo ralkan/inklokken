@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-12 grid-margin">
+    <div class="row">
+      <div class="col-12 col-xl-8 mb-4 mb-xl-0">
+        <h3 class="font-weight-bold">Welcome {{ request.user.username }}! {% if request.user.is_staff %} (Administrator) {% endif %}</h3>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-12 grid-margin stretch-card">
+    <div class="card position-relative">
+      <div class="card-body">
+        <div id="detailedReports" class="carousel slide detailed-report-carousel position-static pt-2" data-bs-ride="carousel">
+          <div class="carousel-inner">
+            {% for news in company_news %}
+            <div class="carousel-item {% if forloop.first %} active {% endif %}">
+              <div class="row">
+                <div class="col-md-12 d-flex flex-column justify-content-start">
+                  <div class="ml-xl-4 mt-8">
+                    <h2 class="text-primary grid-margin">{{ news.title }}</h2>
+                    <div class="col-md-12 grid-margin">
+                      <p>{{ news.content|linebreaks }}</p>
+                    </div>
+                    <div class="col-md-12">
+                      <h5 class="col-md-12"><span class="text-secondary">Geschreven door - </span>@{{ news.user.username }}</h5>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <a class="carousel-control-prev" href="#detailedReports" role="button" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          </a>
+          <a class="carousel-control-next" href="#detailedReports" role="button" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-12 grid-margin stretch-card">
+    <div class="col-md-3"></div>
+    <div class="col-md-6">
+      <div id="calendar-container"></div>
+      <div class="calendar-element">
+        <button onclick="calendarPrev()">prev</button> <button onclick="calendarToday()">Today</button> <button onclick="calendarNext();">next</button>
+        <div id="week-calendar-container" style="height: 600px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% if request.user.is_staff %}
+<div class="row">
+  <div class="col-md-12 grid-margin stretch-card">
+    <div class="card">
+      <div class="card-body">
+        <p class="card-title mb-0">Werknemers</p>
+        <div class="table-responsive">
+          <table class="table table-striped table-borderless">
+            <thead>
+              <tr>
+                <th>Naam</th>
+                <th>Email</th>
+                <th>Ingeklokt vandaag</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in users %}
+              <tr>
+                <td>{{ user.username }}</td>
+                <td class="font-weight-bold">{{ user.email }}</td>
+                {% if user.id in clocked_in_users %}
+                <td class="font-weight-medium">
+                  <div class="badge badge-success">Ingeklokt</div>
+                </td>
+                {% else %}
+                <td class="font-weight-medium">
+                  <div class="badge badge-danger">Niet Ingeklokt</div>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+
+{% block scriptblock %}
+
+<script src="https://uicdn.toast.com/tui.code-snippet/latest/tui-code-snippet.js"></script>
+<script src="https://uicdn.toast.com/tui-calendar/latest/tui-calendar.js"></script>
+
+<script>
+
+var simpleCalEvents = [
+  {% for event in events %}
+  {
+      startDate: "{{ event.event_from|date:"Y/m/d H:i" }}",
+      endDate: "{{ event.event_to|date:"Y/m/d H:i" }}",
+      summary: "{{ event.description }}",
+      eventType: "{{ event.event_type }}"
+  },
+  {% endfor %}
+]
+
+var calendarPrev = function() {}
+var calendarToday = function() {}
+var calendarNext = function() {}
+
+$(document).ready(function(){
+
+  const Calendar = tui.Calendar;
+
+  const calContainer = document.getElementById('');
+  const options = {
+    defaultView: 'week',
+    taskView: false,
+    isReadOnly: true,
+    useFormPopup: true,
+    useDetailPopup: true,
+    timezone: {
+      zones: [
+        {
+          timezoneName: 'Europe/Amsterdam',
+          displayLabel: 'Amsterdam',
+        },
+      ],
+    },
+    calendars: [
+      {
+        id: 'workcal',
+        name: 'Work',
+        color: 'white',
+        bgColor: '#6691CC',
+        borderColor: '#6691CC',
+      },
+      {
+        id: 'sickleave',
+        name: 'SickLeave',
+        color: 'white',
+        bgColor: '#FFC100',
+        borderColor: '#FFC100',
+      },
+    ],
+  };
+
+  const calendar = new Calendar('#week-calendar-container', options);
+
+  var schedules = [
+      {% for event in events %}
+      {
+        id: "{{ event.id }}",
+        {% if event.event_type == 'sick_leave' %}
+        category: 'allday',
+        calendarId: 'sickleave',
+        {% else %}
+        category: 'time',
+        calendarId: 'workcal',
+        {% endif %}
+        start: "{{ event.event_from|date:"Y/m/d H:i" }}",
+        end: "{{ event.event_to|date:"Y/m/d H:i" }}",
+        title: "{{ event.description }}",
+      },
+      {% endfor %}
+  ]
+
+  calendar.createSchedules(schedules);
+
+  calendarPrev = function() {calendar.prev();}
+  calendarToday = function() {calendar.today();}
+  calendarNext = function() {calendar.next();}
+
+});
+
+</script>
+{% endblock scriptblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+{% if messages %}
+  {% for message in messages %}
+    {% if message.tags == "error" %}
+    <div class="alert alert-danger text-danger">
+      {{message}}
+    </div>
+    {% else %}
+    <div class="alert alert-success text-success">
+      {{message}}
+    </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+<div class="row">
+  <div class="col-md-5">
+    <div class="row">
+      <div class="col-md-12 grid-margin">
+        <form action="{% url 'inklokken-add' %}" method="POST">
+          {% csrf_token %}
+          <input name="date_from" id="clockInDateFrom" type="hidden">
+          <input name="date_to" id="clockInDateTo" type="hidden">
+          {% if clocked_in is None %}
+            <button id="addEvent" class="btn btn-primary btn-icon-text">
+              <i class="mdi mdi-clock-fast btn-icon-prepend"></i>
+              Nu Inklokken
+            </button>
+          {% else %}
+            <button id="addEvent" disabled="disabled" class="btn btn-secondary btn-icon-text">
+              <i class="mdi mdi-clock-fast btn-icon-prepend"></i>
+              Nu Inklokken
+            </button>
+            <p class="text-secondary" style="margin-top:10px">Vandaag bent u al ingeklokt. Probeert u het morgen nog eens</p>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12 grid-margin">
+        <h3>Ziekmelden</h3>
+      </div>
+      <form action="{% url 'sickleave-add' %}" method="POST">
+        {% csrf_token %}
+        <div class="col-md-12 grid-margin">
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Van</label>
+            <div class="col-sm-6">
+              <input id="date-from" class="form-control" placeholder="dd/mm/yyyy" data-toggle="datepicker" />
+            </div>
+            <div class="col-sm-3">
+              <input id="time-from" class="form-control" placeholder="hh:mm" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Tot</label>
+            <div class="col-sm-6">
+              <input id="date-to" class="form-control" placeholder="dd/mm/yyyy" data-toggle="datepicker" />
+            </div>
+            <div class="col-sm-3">
+              <input id="time-to" class="form-control" placeholder="hh:mm" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Reden</label>
+            <div class="col-sm-10">
+              <input name="description" id="date-to" class="form-control" placeholder="Ernstigheid" />
+            </div>
+          </div>
+          <input name="date_from" id="sickLeaveDateFrom" type="hidden">
+          <input name="date_to" id="sickLeaveDateTo" type="hidden">
+
+          <button id="addSickLeave" class="btn btn-warning btn-icon-text">
+            <i class="mdi mdi-biohazard btn-icon-prepend"></i>
+            Ziekmelding versturen
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-7 grid-margin">
+    <div id="calendar-container"></div>
+    <div id="calendar-el"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scriptblock %}
+<script>
+
+var events = [
+  {% for event in events %}
+  {
+      startDate: "{{ event.event_from|date:"Y/m/d H:i" }}",
+      endDate: "{{ event.event_to|date:"Y/m/d H:i" }}",
+      summary: "{{ event.description }}",
+      eventType: "{{ event.event_type }}"
+  },
+  {% endfor %}
+]
+
+$(document).ready(function(){
+  $('[data-toggle="datepicker"]').datepicker({
+    format: "dd/mm/yyyy",
+    autoHide: true,
+  });
+
+  var container = $("#calendar-container").simpleCalendar({
+    events: events,
+    onEventSelect: function() {
+      let event = $(this).data('event');
+      console.log("current event", event);
+    },
+    onDateSelect: function(date, events) {
+      console.log(date, events);
+    }
+  });
+
+  var $calendar = container.data('plugin_simpleCalendar')
+
+  $("#addEvent").click(function() {
+    var tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    var now = (new Date(Date.now() - tzoffset)).toISOString();
+    var endofday = (new Date(new Date().setHours(new Date().getHours() + 8) - tzoffset)).toISOString();
+
+    $("#clockInDateFrom").val(now);
+    $("#clockInDateTo").val(endofday);
+  })
+
+  $("#addSickLeave").click(function() {
+    var dateFrom = $("#date-from").val();
+    var dateTo = $("#date-to").val();
+    var timeFrom = $("#time-from").val();
+    var timeTo = $("#time-to").val();
+
+    if (!dateFrom || !dateTo){
+      alert("U moet een start en einddatum invoeren")
+    }
+
+    var sickFrom = `${dateFrom.split("/").reverse().join("-")} ${timeFrom}`;
+    var sickTo = `${dateTo.split("/").reverse().join("-")} ${timeTo}`;
+
+    $("#sickLeaveDateFrom").val(sickFrom);
+    $("#sickLeaveDateTo").val(sickTo);
+
+  });
+
+});
+</script>
+{% endblock scriptblock %}
